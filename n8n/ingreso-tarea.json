@@ -1,0 +1,136 @@
+{
+  "name": "Gestion pendientes - ingreso tarea",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "tareas",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "64d21832-a68d-499d-ad02-db57a88b1e94",
+      "name": "Webhook",
+      "webhookId": "4985c271-ec33-4d1f-a6c6-b788206a67da"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "claude-sonnet-4-5-20250929",
+          "mode": "list",
+          "cachedResultName": "claude-sonnet-4-5-20250929"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Sos un asistente personal de gestión de tareas de un ejecutivo en Bolivia (BBO).\nTu único trabajo es convertir un mensaje en lenguaje natural en una tarea estructurada.\n\nFecha de hoy: {{ $now.format('yyyy-MM-dd') }}\n\nRespondé ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin markdown.\n\nReglas:\n- Titulo: acción principal, máx 60 caracteres, empezá con verbo infinitivo\n- Categoria: solo una de: Directorio, Finanzas, Legal, RRHH, Abastecimiento, TI\n- Prioridad: Alta (urgente/hoy/mañana/≤2 días), Media (esta semana), Baja (sin apuro/>2 semanas)\n- Fecha_Limite: formato YYYY-MM-DD calculada desde hoy, vacío si no se menciona\n- Tiempo_min: estimado en minutos (llamada=15, revisión doc=30, reunión=60-120)\n- Estado: siempre \"Pendiente\"\n- ID: siempre \"\"\n\nFormato de respuesta:\n{\"ID\":\"\",\"Titulo\":\"...\",\"Estado\":\"Pendiente\",\"Prioridad\":\"Alta|Media|Baja\",\"Categoria\":\"...\",\"Fecha_Limite\":\"YYYY-MM-DD\",\"Tiempo_min\":30,\"Notas\":\"...\"}"
+            },
+            {
+              "content": "={{ $json.body.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.anthropic",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "d4cab54b-f669-40a0-87d4-6c71dfd0bbfe",
+      "name": "Message a model",
+      "credentials": {
+        "anthropicApi": {
+          "id": "4kvESsOJZ6WbLzUf",
+          "name": "Anthropic account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const texto = $input.first().json.content[0].text;\nconst tarea = JSON.parse(texto);\nreturn [{ json: tarea }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        0
+      ],
+      "id": "513577b5-4bf7-404c-91d0-66ce1d36ad62",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/REEMPLAZAR_CON_URL_REAL/exec",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        0
+      ],
+      "id": "b740491f-5b53-468b-9259-84dbd2a491f3",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ca0133f0-9d27-4964-972e-228cab90c181",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c1d8ba1b8005735ff18746059c394e92549a734534d5bef67e1c356dadf7a8b3"
+  },
+  "id": "SODOzxmIdmS6KHSu",
+  "tags": []
+}
