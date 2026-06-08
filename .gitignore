@@ -1,0 +1,14 @@
+# Windows
+desktop.ini
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
