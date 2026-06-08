@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Pendientes — BBO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ─── CONFIGURACIÓN ─────────────────────────────────────────────────────────
+    // Reemplazá esta URL con la URL CSV publicada de tu Google Sheet
+    const SHEET_CSV_URL = "";
+
+    // Datos de ejemplo (se usan cuando no hay URL de Sheet configurada)
+    const DATOS_EJEMPLO = [
+      { ID: "T001", Titulo: "Revisar contrato con proveedor X", Estado: "Pendiente", Prioridad: "Alta", Categoria: "Legal", Fecha_Limite: "2026-06-10", Tiempo_min: "30", Notas: "Enviar a legal antes del viernes" },
+      { ID: "T002", Titulo: "Aprobar presupuesto Q3", Estado: "En curso", Prioridad: "Alta", Categoria: "Finanzas", Fecha_Limite: "2026-06-15", Tiempo_min: "60", Notas: "" },
+      { ID: "T003", Titulo: "Entrevista candidato RRHH", Estado: "Pendiente", Prioridad: "Media", Categoria: "RRHH", Fecha_Limite: "2026-06-12", Tiempo_min: "45", Notas: "Confirmar horario con candidato" },
+      { ID: "T004", Titulo: "Actualizar inventario sistemas", Estado: "Pendiente", Prioridad: "Baja", Categoria: "TI", Fecha_Limite: "2026-06-20", Tiempo_min: "90", Notas: "" },
+      { ID: "T005", Titulo: "Reunion directorio mensual", Estado: "Listo", Prioridad: "Alta", Categoria: "Directorio", Fecha_Limite: "2026-06-05", Tiempo_min: "120", Notas: "Acta enviada" },
+      { ID: "T006", Titulo: "Renovar contrato con distribuidor", Estado: "Pendiente", Prioridad: "Media", Categoria: "Abastecimiento", Fecha_Limite: "2026-06-18", Tiempo_min: "30", Notas: "" },
+      { ID: "T007", Titulo: "Informe mensual de caja", Estado: "En curso", Prioridad: "Alta", Categoria: "Finanzas", Fecha_Limite: "2026-06-08", Tiempo_min: "60", Notas: "Vence hoy" },
+    ];
+
+    // ─── HELPERS ───────────────────────────────────────────────────────────────
+    const ESTADOS   = ["Todos", "Pendiente", "En curso", "Listo"];
+    const PRIORIDADES = ["Todas", "Alta", "Media", "Baja"];
+    const CATEGORIAS = ["Todas", "Directorio", "Finanzas", "Legal", "RRHH", "Abastecimiento", "TI"];
+
+    const HOY = new Date().toISOString().split("T")[0];
+
+    function parseFecha(str) {
+      if (!str) return null;
+      return new Date(str + "T12:00:00");
+    }
+
+    function estaVencida(tarea) {
+      if (tarea.Estado === "Listo") return false;
+      const f = parseFecha(tarea.Fecha_Limite);
+      return f && f < new Date();
+    }
+
+    function badgeEstado(estado) {
+      const map = {
+        "Pendiente": "bg-yellow-100 text-yellow-800",
+        "En curso":  "bg-blue-100 text-blue-800",
+        "Listo":     "bg-green-100 text-green-800",
+      };
+      return map[estado] || "bg-gray-100 text-gray-800";
+    }
+
+    function badgePrioridad(p) {
+      const map = {
+        "Alta":  "bg-red-100 text-red-700",
+        "Media": "bg-orange-100 text-orange-700",
+        "Baja":  "bg-gray-100 text-gray-600",
+      };
+      return map[p] || "bg-gray-100 text-gray-600";
+    }
+
+    // ─── PARSE CSV ─────────────────────────────────────────────────────────────
+    function parsearCSV(texto) {
+      const lineas = texto.trim().split("\n");
+      if (lineas.length < 2) return [];
+      const headers = lineas[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
+      return lineas.slice(1).map(linea => {
+        const vals = linea.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i] || ""]));
+      });
+    }
+
+    // ─── APP ───────────────────────────────────────────────────────────────────
+    function App() {
+      const [tareas, setTareas]     = React.useState([]);
+      const [cargando, setCargando] = React.useState(true);
+      const [error, setError]       = React.useState(null);
+      const [usandoEjemplo, setUsandoEjemplo] = React.useState(false);
+
+      const [filtroEstado, setFiltroEstado]       = React.useState("Todos");
+      const [filtroPrioridad, setFiltroPrioridad] = React.useState("Todas");
+      const [filtroCategoria, setFiltroCategoria] = React.useState("Todas");
+      const [busqueda, setBusqueda]               = React.useState("");
+
+      React.useEffect(() => {
+        if (!SHEET_CSV_URL) {
+          setTareas(DATOS_EJEMPLO);
+          setUsandoEjemplo(true);
+          setCargando(false);
+          return;
+        }
+        fetch(SHEET_CSV_URL)
+          .then(r => r.text())
+          .then(txt => { setTareas(parsearCSV(txt)); setCargando(false); })
+          .catch(e => { setError("No se pudo cargar el Sheet. Verificá la URL."); setCargando(false); });
+      }, []);
+
+      const tareasFiltradas = tareas.filter(t => {
+        if (filtroEstado    !== "Todos"  && t.Estado    !== filtroEstado)    return false;
+        if (filtroPrioridad !== "Todas"  && t.Prioridad !== filtroPrioridad) return false;
+        if (filtroCategoria !== "Todas"  && t.Categoria !== filtroCategoria) return false;
+        if (busqueda && !t.Titulo.toLowerCase().includes(busqueda.toLowerCase())) return false;
+        return true;
+      });
+
+      // Contadores
+      const pendientes = tareas.filter(t => t.Estado === "Pendiente" || t.Estado === "En curso").length;
+      const vencidas   = tareas.filter(estaVencida).length;
+      const listas     = tareas.filter(t => t.Estado === "Listo").length;
+
+      return (
+        <div class="max-w-6xl mx-auto p-4">
+          {/* Header */}
+          <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">Gestión de Pendientes</h1>
+            <p class="text-gray-500 text-sm">BBO · {new Date().toLocaleDateString("es-CL", { weekday:"long", year:"numeric", month:"long", day:"numeric" })}</p>
+          </div>
+
+          {/* Banner ejemplo */}
+          {usandoEjemplo && (
+            <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+              ⚠️ Mostrando datos de ejemplo. Para conectar tu Google Sheet, editá la variable <code class="font-mono bg-amber-100 px-1 rounded">SHEET_CSV_URL</code> en el archivo <code class="font-mono bg-amber-100 px-1 rounded">panel/index.html</code>.
+            </div>
+          )}
+
+          {/* Contadores */}
+          <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Activas</p>
+              <p class="text-3xl font-bold text-blue-600">{pendientes}</p>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Vencidas</p>
+              <p class={`text-3xl font-bold ${vencidas > 0 ? "text-red-600" : "text-gray-400"}`}>{vencidas}</p>
+            </div>
+            <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Listas</p>
+              <p class="text-3xl font-bold text-green-600">{listas}</p>
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
+            <div class="flex flex-wrap gap-3">
+              <input
+                type="text"
+                placeholder="Buscar tarea..."
+                value={busqueda}
+                onChange={e => setBusqueda(e.target.value)}
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-[150px] focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                {ESTADOS.map(e => <option key={e}>{e}</option>)}
+              </select>
+              <select value={filtroPrioridad} onChange={e => setFiltroPrioridad(e.target.value)}
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                {PRIORIDADES.map(p => <option key={p}>{p}</option>)}
+              </select>
+              <select value={filtroCategoria} onChange={e => setFiltroCategoria(e.target.value)}
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-300">
+                {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+              </select>
+              {(filtroEstado !== "Todos" || filtroPrioridad !== "Todas" || filtroCategoria !== "Todas" || busqueda) && (
+                <button onClick={() => { setFiltroEstado("Todos"); setFiltroPrioridad("Todas"); setFiltroCategoria("Todas"); setBusqueda(""); }}
+                  class="text-sm text-gray-500 hover:text-gray-800 underline">
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tabla */}
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {cargando ? (
+              <div class="p-10 text-center text-gray-400">Cargando tareas...</div>
+            ) : error ? (
+              <div class="p-10 text-center text-red-500">{error}</div>
+            ) : tareasFiltradas.length === 0 ? (
+              <div class="p-10 text-center text-gray-400">No hay tareas con los filtros actuales.</div>
+            ) : (
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      {["#", "Título", "Estado", "Prioridad", "Categoría", "Vence", "Min"].map(h => (
+                        <th key={h} class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    {tareasFiltradas.map((t, i) => {
+                      const vencida = estaVencida(t);
+                      return (
+                        <tr key={t.ID || i} class={`hover:bg-gray-50 transition-colors ${vencida ? "bg-red-50 hover:bg-red-50" : ""}`}>
+                          <td class="px-4 py-3 text-gray-400 font-mono text-xs">{t.ID}</td>
+                          <td class="px-4 py-3">
+                            <div class="font-medium text-gray-800">{t.Titulo}</div>
+                            {t.Notas && <div class="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{t.Notas}</div>}
+                          </td>
+                          <td class="px-4 py-3">
+                            <span class={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badgeEstado(t.Estado)}`}>
+                              {t.Estado}
+                            </span>
+                          </td>
+                          <td class="px-4 py-3">
+                            <span class={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badgePrioridad(t.Prioridad)}`}>
+                              {t.Prioridad}
+                            </span>
+                          </td>
+                          <td class="px-4 py-3 text-gray-600">{t.Categoria}</td>
+                          <td class="px-4 py-3">
+                            <span class={vencida ? "text-red-600 font-semibold" : "text-gray-600"}>
+                              {t.Fecha_Limite || "—"}
+                              {vencida && " ⚠️"}
+                            </span>
+                          </td>
+                          <td class="px-4 py-3 text-gray-500">{t.Tiempo_min ? `${t.Tiempo_min}'` : "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div class="px-4 py-2 border-t border-gray-100 text-xs text-gray-400 text-right">
+              {tareasFiltradas.length} tarea{tareasFiltradas.length !== 1 ? "s" : ""}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
