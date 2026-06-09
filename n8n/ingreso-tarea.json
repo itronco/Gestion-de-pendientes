@@ -13,7 +13,7 @@
         0,
         0
       ],
-      "id": "64d21832-a68d-499d-ad02-db57a88b1e94",
+      "id": "0b3ae01b-5b60-433e-9e3a-b939b92926de",
       "name": "Webhook",
       "webhookId": "4985c271-ec33-4d1f-a6c6-b788206a67da"
     },
@@ -43,18 +43,18 @@
         208,
         0
       ],
-      "id": "d4cab54b-f669-40a0-87d4-6c71dfd0bbfe",
+      "id": "9d189e23-e28c-4311-ba04-84694892cabe",
       "name": "Message a model",
       "credentials": {
         "anthropicApi": {
-          "id": "4kvESsOJZ6WbLzUf",
-          "name": "Anthropic account 2"
+          "id": "Jtp7e0UB8UqKtoyM",
+          "name": "Anthropic account"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const texto = $input.first().json.content[0].text;\nconst tarea = JSON.parse(texto);\nreturn [{ json: tarea }];"
+        "jsCode": "const texto = $input.first().json.content[0].text;\n\n// Limpiar markdown si Claude lo envuelve en ```json ... ```\nconst limpio = texto.replace(/```json\\n?/g, \"\").replace(/```\\n?/g, \"\").trim();\n\nconst tarea = JSON.parse(limpio);\nreturn [{ json: tarea }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -62,13 +62,13 @@
         560,
         0
       ],
-      "id": "513577b5-4bf7-404c-91d0-66ce1d36ad62",
+      "id": "f4504ef4-face-4e59-af64-78d541f22c0c",
       "name": "Code in JavaScript"
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://script.google.com/macros/s/REEMPLAZAR_CON_URL_REAL/exec",
+        "url": "https://script.google.com/macros/s/AKfycbyDhfZs_i6HI-W7FbBN33YHPX1166vUyrroK0SORG0zF8k_A5wEHSw3a3vjK1KqAzAVpw/exec",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",
@@ -80,7 +80,7 @@
         768,
         0
       ],
-      "id": "b740491f-5b53-468b-9259-84dbd2a491f3",
+      "id": "065499ba-a36e-4f18-b0e1-4c1dea2a0cfa",
       "name": "HTTP Request"
     }
   ],
@@ -120,17 +120,17 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate",
-    "availableInMCP": false
+    "binaryMode": "separate"
   },
-  "versionId": "ca0133f0-9d27-4964-972e-228cab90c181",
+  "versionId": "294d862a-923d-4197-8522-05640e606052",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "c1d8ba1b8005735ff18746059c394e92549a734534d5bef67e1c356dadf7a8b3"
+    "instanceId": "bc41ad27df3394ccab95873c5c265e1ef1a5cc10f65c9a9d22d8a74007f0f200"
   },
-  "id": "SODOzxmIdmS6KHSu",
+  "nodeGroups": [],
+  "id": "4wNrKUYycx71TlDA",
   "tags": []
 }
